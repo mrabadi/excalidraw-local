@@ -27,8 +27,6 @@ function createWindow() {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
-  window.webContents.setPermissionRequestHandler((_, __, callback) => callback(false));
-  window.webContents.setPermissionCheckHandler(() => false);
   window.webContents.on("will-prevent-unload", (event) => event.preventDefault());
   window.loadFile(path.join(__dirname, "..", "dist", "index.html"));
 }
@@ -42,6 +40,8 @@ app.on("web-contents-created", (_, contents) => {
 });
 app.whenReady().then(() => {
   blockNetworkRequests();
+  session.defaultSession.setPermissionRequestHandler((_, __, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
