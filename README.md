@@ -9,6 +9,7 @@ An offline, launchable Ubuntu desktop app built with [Excalidraw](https://github
 - `.excalidraw` documents open and save through native system dialogs, defaulting to `$HOME`.
 - The current drawing and active document are restored after restart.
 - Bundled Excalidraw fonts and assets, including Excalifont.
+- Ubuntu is available in the font picker and bundled into the app. Verdana is available when installed on the host system; its proprietary font files are not redistributed.
 - No cloud sync, collaboration server, analytics, or external asset requests at runtime.
 
 ## Requirements
@@ -23,6 +24,8 @@ On Ubuntu/Debian, install Bubblewrap with:
 sudo apt update
 sudo apt install bubblewrap
 ```
+
+Ubuntu desktop installations normally include the Ubuntu font. If yours does not, install it with `sudo apt install fonts-ubuntu`. Verdana is optional and must be installed separately by the user because it is not redistributed by this project.
 
 Install Node.js 20+ using your preferred system package manager or [NodeSource](https://github.com/nodesource/distributions).
 
