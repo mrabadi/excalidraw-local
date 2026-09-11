@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Excalidraw, serializeAsJSON } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
@@ -19,6 +19,8 @@ function loadPreviousScene() {
 
 function App() {
   const [initialData] = useState(loadPreviousScene);
+  const [saveMessage, setSaveMessage] = useState("");
+  const apiRef = useRef(null);
   const saveScene = useCallback((elements, appState, files) => {
     try {
       localStorage.setItem(SCENE_STORAGE_KEY, serializeAsJSON(elements, appState, files, "local"));
@@ -26,8 +28,32 @@ function App() {
       console.error("Could not save the local scene", error);
     }
   }, []);
+  const saveToFile = useCallback(async (forceSaveAs) => {
+    if (!apiRef.current || !window.excalidrawLocal) return;
+    const scene = serializeAsJSON(
+      apiRef.current.getSceneElementsIncludingDeleted(),
+      apiRef.current.getAppState(),
+      apiRef.current.getFiles(),
+      "local"
+    );
+    const result = await window.excalidrawLocal.saveScene(scene, forceSaveAs);
+    if (!result.canceled) setSaveMessage(`Saved ${result.path}`);
+  }, []);
+  useEffect(() => window.excalidrawLocal?.onSaveRequest(saveToFile), [saveToFile]);
 
-  return <Excalidraw theme="light" initialData={initialData} onChange={saveScene} />;
+  return <div className="app-shell">
+    <header className="app-menubar">
+      <details>
+        <summary>File</summary>
+        <div className="file-menu">
+          <button onClick={() => saveToFile(false)}>Save <span>Ctrl+S</span></button>
+          <button onClick={() => saveToFile(true)}>Save As… <span>Ctrl+Shift+S</span></button>
+        </div>
+      </details>
+      {saveMessage && <span className="save-message">{saveMessage}</span>}
+    </header>
+    <main><Excalidraw excalidrawAPI={(api) => { apiRef.current = api; }} theme="light" initialData={initialData} onChange={saveScene} /></main>
+  </div>;
 }
 
 createRoot(document.getElementById("root")).render(<App />);
