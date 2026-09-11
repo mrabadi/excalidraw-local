@@ -1,25 +1,67 @@
 # Excalidraw Local
 
-A launchable Ubuntu desktop version of Excalidraw designed to work without internet access.
+An offline, launchable Ubuntu desktop app built with [Excalidraw](https://github.com/excalidraw/excalidraw). It runs inside a networkless Bubblewrap sandbox while retaining normal access to files in your home directory.
 
-## Build once
+## Features
 
-Requires Node.js 20+ and Bubblewrap (`bwrap`). From this directory:
+- Native top-level File menu: New Canvas, Save, Save As, Open, Open Recent, and Quit.
+- Standard shortcuts: `Ctrl+N`, `Ctrl+S`, `Ctrl+Shift+S`, and `Ctrl+O`.
+- `.excalidraw` documents open and save through native system dialogs, defaulting to `$HOME`.
+- The current drawing and active document are restored after restart.
+- Bundled Excalidraw fonts and assets, including Excalifont.
+- No cloud sync, collaboration server, analytics, or external asset requests at runtime.
+
+## Requirements
+
+- Ubuntu 22.04 or another Linux distribution with a working Wayland or X11 desktop session.
+- Node.js 20 or newer and npm.
+- [Bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`).
+
+On Ubuntu/Debian, install Bubblewrap with:
 
 ```bash
-npm install
-npm run build
-./install-desktop.sh
+sudo apt update
+sudo apt install bubblewrap
 ```
 
-Launch it from the Ubuntu application menu as **Excalidraw Local**, or run `./launch-sandboxed.sh`.
+Install Node.js 20+ using your preferred system package manager or [NodeSource](https://github.com/nodesource/distributions).
 
-## Network isolation
+## Build and install
 
-The desktop launcher runs the packaged Electron binary in Bubblewrap with `--unshare-net`: it receives an empty network namespace, so it has no network interfaces or DNS access. The Electron renderer is also sandboxed, loads only packaged `file:` assets, rejects all permission requests, blocks navigation/popups, and has a CSP with `connect-src 'none'`.
+```bash
+git clone git@github.com:mrabadi/excalidraw-local.git
+cd excalidraw-local
+./install.sh
+```
 
-The sandbox permits the display socket and your home directory, so native Open/Save As dialogs work with host files and start in `$HOME`. It deliberately does not mount broader system paths or permit a network interface. There is no cloud, collaboration, analytics, or external asset loading.
+Launch **Excalidraw Local** from the application menu, or run:
 
-## Data
+```bash
+./launch-sandboxed.sh
+```
 
-The current drawing is automatically restored when the app is reopened. Use Excalidraw's export/save controls to write `.excalidraw` files under your home directory. The app has no cloud persistence.
+`npm install` and the first Electron build download dependencies. Once built, launching the app does not require an internet connection.
+
+The installer creates a per-user application-menu entry; it does not require `sudo`. To rebuild after source changes, run `./install.sh` again.
+
+## File behavior
+
+- **Save** writes to the current document. The first Save prompts for a filename.
+- **Save As** always prompts for a destination.
+- **Open Recent** lists the ten most recently opened or saved documents.
+- **New Canvas** clears the active document, so the next Save prompts for a new filename.
+
+## Security model
+
+The launcher invokes Bubblewrap with `--unshare-net`, giving the app an empty network namespace: no network interfaces and no DNS access. Electron also blocks network requests, permissions, navigation, and popups; the packaged UI has a `connect-src 'none'` Content Security Policy.
+
+The sandbox deliberately mounts your **home directory** so native Open/Save dialogs can read and write your files. That means the app can access files under `$HOME`; do not run untrusted modifications of this project. Other host system paths are not mounted, and runtime networking remains disabled.
+
+## Development
+
+```bash
+npm run build
+./launch-sandboxed.sh
+```
+
+The desktop launcher is generated per user by `install-desktop.sh` and is intentionally not committed.
