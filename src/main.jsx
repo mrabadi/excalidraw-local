@@ -45,6 +45,17 @@ function App() {
   }, []);
   useEffect(() => window.excalidrawLocal?.onSaveRequest(saveToFile), [saveToFile]);
   useEffect(() => window.excalidrawLocal?.onNewCanvasRequest(newCanvas), [newCanvas]);
+  useEffect(() => {
+    const interceptSaveShortcut = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        saveToFile(event.shiftKey);
+      }
+    };
+    window.addEventListener("keydown", interceptSaveShortcut, true);
+    return () => window.removeEventListener("keydown", interceptSaveShortcut, true);
+  }, [saveToFile]);
 
   return <Excalidraw excalidrawAPI={(api) => { apiRef.current = api; }} theme="light" initialData={initialData} onChange={saveScene} />;
 }

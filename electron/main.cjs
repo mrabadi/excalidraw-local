@@ -5,6 +5,22 @@ const path = require("path");
 let mainWindow;
 let activeFilePath = null;
 
+function activeFileRecordPath() {
+  return path.join(app.getPath("userData"), "active-file.json");
+}
+async function restoreActiveFilePath() {
+  try {
+    const record = JSON.parse(await fs.readFile(activeFileRecordPath(), "utf8"));
+    activeFilePath = typeof record.path === "string" ? record.path : null;
+  } catch {
+    activeFilePath = null;
+  }
+}
+async function persistActiveFilePath() {
+  await fs.mkdir(app.getPath("userData"), { recursive: true });
+  await fs.writeFile(activeFileRecordPath(), JSON.stringify({ path: activeFilePath }), "utf8");
+}
+
 // Defense in depth: the launcher removes networking, and this blocks it in Chromium.
 function blockNetworkRequests() {
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
@@ -66,7 +82,7 @@ app.commandLine.appendSwitch("disable-gpu");
 app.on("web-contents-created", (_, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
 });
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   blockNetworkRequests();
   session.defaultSession.setPermissionRequestHandler((_, __, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
@@ -83,14 +99,17 @@ app.whenReady().then(() => {
     }
     await fs.writeFile(targetPath, scene, "utf8");
     activeFilePath = targetPath;
+    await persistActiveFilePath();
     mainWindow?.setTitle(`Excalidraw Local — ${path.basename(targetPath)}`);
     return { canceled: false, path: targetPath };
   });
-  ipcMain.handle("scene:new", () => {
+  ipcMain.handle("scene:new", async () => {
     activeFilePath = null;
+    await persistActiveFilePath();
     mainWindow?.setTitle("Excalidraw Local");
   });
   ipcMain.handle("app:quit", () => app.quit());
+  await restoreActiveFilePath();
   installApplicationMenu();
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
