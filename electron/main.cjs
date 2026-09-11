@@ -40,15 +40,18 @@ function createWindow() {
 function requestSave(forceSaveAs) {
   mainWindow?.webContents.send("scene:save-request", forceSaveAs);
 }
+function requestNewCanvas() {
+  mainWindow?.webContents.send("scene:new-request");
+}
 
 function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: "File",
       submenu: [
+        { label: "New Canvas", accelerator: "CmdOrCtrl+N", click: requestNewCanvas },
         { label: "Save", accelerator: "CmdOrCtrl+S", click: () => requestSave(false) },
         { label: "Save As…", accelerator: "CmdOrCtrl+Shift+S", click: () => requestSave(true) },
-        { type: "separator" },
         { role: "quit" }
       ]
     },
@@ -83,6 +86,11 @@ app.whenReady().then(() => {
     mainWindow?.setTitle(`Excalidraw Local — ${path.basename(targetPath)}`);
     return { canceled: false, path: targetPath };
   });
+  ipcMain.handle("scene:new", () => {
+    activeFilePath = null;
+    mainWindow?.setTitle("Excalidraw Local");
+  });
+  ipcMain.handle("app:quit", () => app.quit());
   installApplicationMenu();
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
