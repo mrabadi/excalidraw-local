@@ -1,16 +1,5 @@
-html, body, #root, .app-shell, .app-shell main {
+html, body, #root {
   height: 100%;
   margin: 0;
   overflow: hidden;
 }
-.app-shell { display: flex; flex-direction: column; }
-.app-shell main { min-height: 0; flex: 1; }
-.app-menubar { height: 30px; flex: 0 0 30px; display: flex; align-items: center; gap: 14px; padding: 0 10px; background: #f8f8fa; border-bottom: 1px solid #e3e3e8; font: 13px system-ui, sans-serif; z-index: 2; }
-.app-menubar summary { cursor: pointer; list-style: none; }
-.app-menubar summary::-webkit-details-marker { display: none; }
-.app-menubar details { position: relative; }
-.file-menu { position: absolute; top: 24px; left: -8px; width: 190px; padding: 5px; background: white; border: 1px solid #d8d8df; border-radius: 5px; box-shadow: 0 4px 14px #0002; }
-.file-menu button { width: 100%; display: flex; justify-content: space-between; padding: 7px 9px; border: 0; background: transparent; border-radius: 3px; cursor: pointer; text-align: left; }
-.file-menu button:hover { background: #f0efff; }
-.file-menu span { color: #777; font-size: 11px; }
-.save-message { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #555; }

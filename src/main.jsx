@@ -19,7 +19,6 @@ function loadPreviousScene() {
 
 function App() {
   const [initialData] = useState(loadPreviousScene);
-  const [saveMessage, setSaveMessage] = useState("");
   const apiRef = useRef(null);
   const saveScene = useCallback((elements, appState, files) => {
     try {
@@ -37,33 +36,17 @@ function App() {
       "local"
     );
     const result = await window.excalidrawLocal.saveScene(scene, forceSaveAs);
-    if (!result.canceled) setSaveMessage(`Saved ${result.path}`);
   }, []);
   const newCanvas = useCallback(async () => {
     if (!apiRef.current || !window.excalidrawLocal) return;
     apiRef.current.resetScene();
     localStorage.removeItem(SCENE_STORAGE_KEY);
     await window.excalidrawLocal.newCanvas();
-    setSaveMessage("New canvas");
   }, []);
   useEffect(() => window.excalidrawLocal?.onSaveRequest(saveToFile), [saveToFile]);
   useEffect(() => window.excalidrawLocal?.onNewCanvasRequest(newCanvas), [newCanvas]);
 
-  return <div className="app-shell">
-    <header className="app-menubar">
-      <details>
-        <summary>File</summary>
-        <div className="file-menu">
-          <button onClick={newCanvas}>New Canvas <span>Ctrl+N</span></button>
-          <button onClick={() => saveToFile(false)}>Save <span>Ctrl+S</span></button>
-          <button onClick={() => saveToFile(true)}>Save As… <span>Ctrl+Shift+S</span></button>
-          <button onClick={() => window.excalidrawLocal?.quit()}>Quit</button>
-        </div>
-      </details>
-      {saveMessage && <span className="save-message">{saveMessage}</span>}
-    </header>
-    <main><Excalidraw excalidrawAPI={(api) => { apiRef.current = api; }} theme="light" initialData={initialData} onChange={saveScene} /></main>
-  </div>;
+  return <Excalidraw excalidrawAPI={(api) => { apiRef.current = api; }} theme="light" initialData={initialData} onChange={saveScene} />;
 }
 
 createRoot(document.getElementById("root")).render(<App />);
