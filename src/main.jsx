@@ -43,8 +43,17 @@ function App() {
     localStorage.removeItem(SCENE_STORAGE_KEY);
     await window.excalidrawLocal.newCanvas();
   }, []);
+  const openScene = useCallback(async (filePath = null) => {
+    if (!apiRef.current || !window.excalidrawLocal) return;
+    const result = await window.excalidrawLocal.openScene(filePath);
+    if (result.canceled || result.error) return;
+    apiRef.current.resetScene();
+    apiRef.current.updateScene(result.scene);
+    localStorage.setItem(SCENE_STORAGE_KEY, JSON.stringify(result.scene));
+  }, []);
   useEffect(() => window.excalidrawLocal?.onSaveRequest(saveToFile), [saveToFile]);
   useEffect(() => window.excalidrawLocal?.onNewCanvasRequest(newCanvas), [newCanvas]);
+  useEffect(() => window.excalidrawLocal?.onOpenRequest(openScene), [openScene]);
   useEffect(() => {
     const interceptSaveShortcut = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {

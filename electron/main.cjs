@@ -4,6 +4,7 @@ const path = require("path");
 
 let mainWindow;
 let activeFilePath = null;
+let recentFiles = [];
 
 function activeFileRecordPath() {
   return path.join(app.getPath("userData"), "active-file.json");
@@ -19,6 +20,23 @@ async function restoreActiveFilePath() {
 async function persistActiveFilePath() {
   await fs.mkdir(app.getPath("userData"), { recursive: true });
   await fs.writeFile(activeFileRecordPath(), JSON.stringify({ path: activeFilePath }), "utf8");
+}
+function recentFilesRecordPath() {
+  return path.join(app.getPath("userData"), "recent-files.json");
+}
+async function restoreRecentFiles() {
+  try {
+    const record = JSON.parse(await fs.readFile(recentFilesRecordPath(), "utf8"));
+    recentFiles = Array.isArray(record.paths) ? record.paths.filter((item) => typeof item === "string") : [];
+  } catch {
+    recentFiles = [];
+  }
+}
+async function recordRecentFile(filePath) {
+  recentFiles = [filePath, ...recentFiles.filter((item) => item !== filePath)].slice(0, 10);
+  await fs.mkdir(app.getPath("userData"), { recursive: true });
+  await fs.writeFile(recentFilesRecordPath(), JSON.stringify({ paths: recentFiles }), "utf8");
+  installApplicationMenu();
 }
 
 // Defense in depth: the launcher removes networking, and this blocks it in Chromium.
@@ -59,6 +77,9 @@ function requestSave(forceSaveAs) {
 function requestNewCanvas() {
   mainWindow?.webContents.send("scene:new-request");
 }
+function requestOpen(filePath = null) {
+  mainWindow?.webContents.send("scene:open-request", filePath);
+}
 
 function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -68,6 +89,13 @@ function installApplicationMenu() {
         { label: "New Canvas", accelerator: "CmdOrCtrl+N", click: requestNewCanvas },
         { label: "Save", accelerator: "CmdOrCtrl+S", click: () => requestSave(false) },
         { label: "Save As…", accelerator: "CmdOrCtrl+Shift+S", click: () => requestSave(true) },
+        { label: "Open…", accelerator: "CmdOrCtrl+O", click: () => requestOpen() },
+        {
+          label: "Open Recent",
+          submenu: recentFiles.length
+            ? recentFiles.map((filePath) => ({ label: path.basename(filePath), sublabel: filePath, click: () => requestOpen(filePath) }))
+            : [{ label: "No recent files", enabled: false }]
+        },
         { role: "quit" }
       ]
     },
@@ -100,6 +128,7 @@ app.whenReady().then(async () => {
     await fs.writeFile(targetPath, scene, "utf8");
     activeFilePath = targetPath;
     await persistActiveFilePath();
+    await recordRecentFile(targetPath);
     mainWindow?.setTitle(`Excalidraw Local — ${path.basename(targetPath)}`);
     return { canceled: false, path: targetPath };
   });
@@ -108,8 +137,32 @@ app.whenReady().then(async () => {
     await persistActiveFilePath();
     mainWindow?.setTitle("Excalidraw Local");
   });
+  ipcMain.handle("scene:open", async (_, requestedPath) => {
+    let targetPath = requestedPath;
+    if (!targetPath) {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: "Open Excalidraw drawing",
+        defaultPath: app.getPath("home"),
+        properties: ["openFile"],
+        filters: [{ name: "Excalidraw drawing", extensions: ["excalidraw", "json"] }]
+      });
+      if (result.canceled || !result.filePaths[0]) return { canceled: true };
+      [targetPath] = result.filePaths;
+    }
+    try {
+      const scene = JSON.parse(await fs.readFile(targetPath, "utf8"));
+      activeFilePath = targetPath;
+      await persistActiveFilePath();
+      await recordRecentFile(targetPath);
+      mainWindow?.setTitle(`Excalidraw Local — ${path.basename(targetPath)}`);
+      return { canceled: false, scene, path: targetPath };
+    } catch (error) {
+      return { canceled: false, error: `Could not open ${targetPath}: ${error.message}` };
+    }
+  });
   ipcMain.handle("app:quit", () => app.quit());
   await restoreActiveFilePath();
+  await restoreRecentFiles();
   installApplicationMenu();
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

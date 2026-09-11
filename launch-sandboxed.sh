@@ -15,9 +15,11 @@ command -v bwrap >/dev/null || { echo "bubblewrap (bwrap) is required" >&2; exit
 mkdir -p "$DATA_ROOT" "$RUNTIME_ROOT"
 
 DISPLAY_ARGS=()
+PLATFORM_ARGS=(--ozone-platform-hint=auto)
 HAS_DISPLAY=false
 if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" && -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]]; then
   DISPLAY_ARGS+=(--bind "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" "/run/user/$(id -u)/$WAYLAND_DISPLAY" --setenv WAYLAND_DISPLAY "$WAYLAND_DISPLAY" --setenv XDG_RUNTIME_DIR "/run/user/$(id -u)")
+  PLATFORM_ARGS=(--ozone-platform=wayland)
   HAS_DISPLAY=true
 fi
 if [[ -n "${DISPLAY:-}" && -d /tmp/.X11-unix ]]; then
@@ -36,4 +38,4 @@ exec bwrap --die-with-parent --unshare-user --unshare-pid --unshare-ipc --unshar
   --dir /home --bind "$HOST_HOME" "$HOST_HOME" --tmpfs /tmp --dir /run --dir /run/user --dir "/run/user/$(id -u)" \
   --setenv HOME "$HOST_HOME" --setenv XDG_CONFIG_HOME "$HOST_HOME/.config" --setenv XDG_DATA_HOME "$HOST_HOME/.local/share" \
   --setenv XDG_CACHE_HOME "$HOST_HOME/.cache" --setenv ELECTRON_DISABLE_SECURITY_WARNINGS true \
-  "${DISPLAY_ARGS[@]}" /app/dist/linux-unpacked/excalidraw-local --ozone-platform-hint=auto "$@"
+  "${DISPLAY_ARGS[@]}" /app/dist/linux-unpacked/excalidraw-local "${PLATFORM_ARGS[@]}" "$@"
