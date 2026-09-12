@@ -10,7 +10,7 @@ An offline, launchable Ubuntu desktop app built with [Excalidraw](https://github
 - The current drawing and active document are restored after restart.
 - Bundled Excalidraw fonts and assets, including Excalifont.
 - Ubuntu is available in the font picker and bundled into the app. Verdana is available when installed on the host system; its proprietary font files are not redistributed.
-- Settings → Mode switches between Sketch and Professional. Professional mode uses architect strokes, Verdana, elbow arrows, and the Equivar light figure palette: Green01, Brown01, Purple01, Blue01, Yellow02, Red01, and Orange01, with generated lighter tints plus graphite and warm white.
+- Settings → Mode switches between Sketch and Professional immediately. Professional mode uses architect strokes, Verdana, elbow arrows, and the Equivar light figure palette: Green01, Brown01, Purple01, Blue01, Yellow02, Red01, and Orange01, with generated lighter tints plus graphite and warm white.
 - No cloud sync, collaboration server, analytics, or external asset requests at runtime.
 
 ## Requirements

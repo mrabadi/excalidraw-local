@@ -14,7 +14,8 @@ const PROFESSIONAL_APP_STATE = {
   currentItemArrowType: "elbow",
   currentItemStrokeColor: "#222624",
   currentItemBackgroundColor: "transparent",
-  viewBackgroundColor: "#FAFAF7"
+  currentItemFillStyle: "solid",
+  viewBackgroundColor: "#ffffff"
 };
 const SKETCH_APP_STATE = {
   currentItemRoughness: 1,
@@ -22,6 +23,7 @@ const SKETCH_APP_STATE = {
   currentItemArrowType: "round",
   currentItemStrokeColor: "#1e1e1e",
   currentItemBackgroundColor: "transparent",
+  currentItemFillStyle: "hachure",
   viewBackgroundColor: "#ffffff"
 };
 
@@ -36,8 +38,13 @@ function loadPreviousScene() {
 
 function App() {
   const [initialData] = useState(loadPreviousScene);
-  const [mode] = useState(() => localStorage.getItem(MODE_STORAGE_KEY) === "professional" ? "professional" : "sketch");
+  const [mode, setDrawingMode] = useState(() => localStorage.getItem(MODE_STORAGE_KEY) === "professional" ? "professional" : "sketch");
+  const [excalidrawAPI, setExcalidrawAPI] = useState(null);
   const apiRef = useRef(null);
+  const setExcalidrawAPIRef = useCallback((api) => {
+    apiRef.current = api;
+    setExcalidrawAPI(api);
+  }, []);
   const saveScene = useCallback((elements, appState, files) => {
     try {
       localStorage.setItem(SCENE_STORAGE_KEY, serializeAsJSON(elements, appState, files, "local"));
@@ -75,12 +82,14 @@ function App() {
   useEffect(() => window.excalidrawLocal?.onModeRequest(async (nextMode) => {
     const resolvedMode = nextMode === "professional" ? "professional" : "sketch";
     localStorage.setItem(MODE_STORAGE_KEY, resolvedMode);
+    window.EXCALIDRAW_LOCAL_SET_PALETTE?.(resolvedMode === "professional");
+    setDrawingMode(resolvedMode);
     await window.excalidrawLocal.setMode(resolvedMode);
-    window.location.reload();
   }), []);
   useEffect(() => {
-    apiRef.current?.updateScene({ appState: mode === "professional" ? PROFESSIONAL_APP_STATE : SKETCH_APP_STATE });
-  }, [mode]);
+    window.EXCALIDRAW_LOCAL_SET_PALETTE?.(mode === "professional");
+    excalidrawAPI?.updateScene({ appState: mode === "professional" ? PROFESSIONAL_APP_STATE : SKETCH_APP_STATE });
+  }, [excalidrawAPI, mode]);
   useEffect(() => {
     const interceptSaveShortcut = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
@@ -93,7 +102,7 @@ function App() {
     return () => window.removeEventListener("keydown", interceptSaveShortcut, true);
   }, [saveToFile]);
 
-  return <Excalidraw excalidrawAPI={(api) => { apiRef.current = api; }} theme="light" initialData={initialData} onChange={saveScene} />;
+  return <Excalidraw excalidrawAPI={setExcalidrawAPIRef} theme="light" initialData={initialData} onChange={saveScene} />;
 }
 
 createRoot(document.getElementById("root")).render(<App />);
