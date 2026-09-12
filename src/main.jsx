@@ -7,6 +7,23 @@ import "./style.css";
 // Keep every Excalidraw font request within the packaged application's dist/fonts/.
 window.EXCALIDRAW_ASSET_PATH = new URL("./", window.location.href).href;
 const SCENE_STORAGE_KEY = "excalidraw-local:last-scene";
+const MODE_STORAGE_KEY = "excalidraw-local:mode";
+const PROFESSIONAL_APP_STATE = {
+  currentItemRoughness: 0,
+  currentItemFontFamily: 10,
+  currentItemArrowType: "elbow",
+  currentItemStrokeColor: "#222624",
+  currentItemBackgroundColor: "transparent",
+  viewBackgroundColor: "#FAFAF7"
+};
+const SKETCH_APP_STATE = {
+  currentItemRoughness: 1,
+  currentItemFontFamily: 5,
+  currentItemArrowType: "round",
+  currentItemStrokeColor: "#1e1e1e",
+  currentItemBackgroundColor: "transparent",
+  viewBackgroundColor: "#ffffff"
+};
 
 function loadPreviousScene() {
   try {
@@ -19,6 +36,7 @@ function loadPreviousScene() {
 
 function App() {
   const [initialData] = useState(loadPreviousScene);
+  const [mode] = useState(() => localStorage.getItem(MODE_STORAGE_KEY) === "professional" ? "professional" : "sketch");
   const apiRef = useRef(null);
   const saveScene = useCallback((elements, appState, files) => {
     try {
@@ -54,6 +72,15 @@ function App() {
   useEffect(() => window.excalidrawLocal?.onSaveRequest(saveToFile), [saveToFile]);
   useEffect(() => window.excalidrawLocal?.onNewCanvasRequest(newCanvas), [newCanvas]);
   useEffect(() => window.excalidrawLocal?.onOpenRequest(openScene), [openScene]);
+  useEffect(() => window.excalidrawLocal?.onModeRequest(async (nextMode) => {
+    const resolvedMode = nextMode === "professional" ? "professional" : "sketch";
+    localStorage.setItem(MODE_STORAGE_KEY, resolvedMode);
+    await window.excalidrawLocal.setMode(resolvedMode);
+    window.location.reload();
+  }), []);
+  useEffect(() => {
+    apiRef.current?.updateScene({ appState: mode === "professional" ? PROFESSIONAL_APP_STATE : SKETCH_APP_STATE });
+  }, [mode]);
   useEffect(() => {
     const interceptSaveShortcut = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {

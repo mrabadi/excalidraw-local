@@ -5,6 +5,7 @@ const path = require("path");
 let mainWindow;
 let activeFilePath = null;
 let recentFiles = [];
+let mode = "sketch";
 
 function activeFileRecordPath() {
   return path.join(app.getPath("userData"), "active-file.json");
@@ -37,6 +38,21 @@ async function recordRecentFile(filePath) {
   await fs.mkdir(app.getPath("userData"), { recursive: true });
   await fs.writeFile(recentFilesRecordPath(), JSON.stringify({ paths: recentFiles }), "utf8");
   installApplicationMenu();
+}
+function modeRecordPath() {
+  return path.join(app.getPath("userData"), "mode.json");
+}
+async function restoreMode() {
+  try {
+    const record = JSON.parse(await fs.readFile(modeRecordPath(), "utf8"));
+    mode = record.mode === "professional" ? "professional" : "sketch";
+  } catch {
+    mode = "sketch";
+  }
+}
+async function persistMode() {
+  await fs.mkdir(app.getPath("userData"), { recursive: true });
+  await fs.writeFile(modeRecordPath(), JSON.stringify({ mode }), "utf8");
 }
 
 // Defense in depth: the launcher removes networking, and this blocks it in Chromium.
@@ -80,6 +96,9 @@ function requestNewCanvas() {
 function requestOpen(filePath = null) {
   mainWindow?.webContents.send("scene:open-request", filePath);
 }
+function requestMode(nextMode) {
+  mainWindow?.webContents.send("settings:mode-request", nextMode);
+}
 
 function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -99,7 +118,17 @@ function installApplicationMenu() {
         { role: "quit" }
       ]
     },
-    { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }] }
+    { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }] },
+    {
+      label: "Settings",
+      submenu: [{
+        label: "Mode",
+        submenu: [
+          { label: "Sketch", type: "checkbox", checked: mode === "sketch", click: () => requestMode("sketch") },
+          { label: "Professional", type: "checkbox", checked: mode === "professional", click: () => requestMode("professional") }
+        ]
+      }]
+    }
   ]));
 }
 
@@ -161,8 +190,14 @@ app.whenReady().then(async () => {
     }
   });
   ipcMain.handle("app:quit", () => app.quit());
+  ipcMain.handle("settings:set-mode", async (_, nextMode) => {
+    mode = nextMode === "professional" ? "professional" : "sketch";
+    await persistMode();
+    installApplicationMenu();
+  });
   await restoreActiveFilePath();
   await restoreRecentFiles();
+  await restoreMode();
   installApplicationMenu();
   createWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
