@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Excalidraw, serializeAsJSON } from "@excalidraw/excalidraw";
-import "@excalidraw/excalidraw/index.css";
+import { setLocalProfessionalPalette } from "@excalidraw/excalidraw/colors";
+import "../node_modules/@excalidraw/excalidraw/dist/prod/index.css";
 import "./style.css";
 
 // Keep every Excalidraw font request within the packaged application's dist/fonts/.
@@ -12,6 +13,7 @@ const PROFESSIONAL_APP_STATE = {
   currentItemRoughness: 0,
   currentItemFontFamily: 10,
   currentItemArrowType: "elbow",
+  currentItemEndArrowhead: "triangle",
   currentItemStrokeColor: "#222624",
   currentItemBackgroundColor: "transparent",
   currentItemFillStyle: "solid",
@@ -21,12 +23,12 @@ const SKETCH_APP_STATE = {
   currentItemRoughness: 1,
   currentItemFontFamily: 5,
   currentItemArrowType: "round",
+  currentItemEndArrowhead: "arrow",
   currentItemStrokeColor: "#1e1e1e",
   currentItemBackgroundColor: "transparent",
   currentItemFillStyle: "hachure",
   viewBackgroundColor: "#ffffff"
 };
-
 function loadPreviousScene() {
   try {
     const stored = localStorage.getItem(SCENE_STORAGE_KEY);
@@ -82,12 +84,12 @@ function App() {
   useEffect(() => window.excalidrawLocal?.onModeRequest(async (nextMode) => {
     const resolvedMode = nextMode === "professional" ? "professional" : "sketch";
     localStorage.setItem(MODE_STORAGE_KEY, resolvedMode);
-    window.EXCALIDRAW_LOCAL_SET_PALETTE?.(resolvedMode === "professional");
+    setLocalProfessionalPalette(resolvedMode === "professional");
     setDrawingMode(resolvedMode);
     await window.excalidrawLocal.setMode(resolvedMode);
   }), []);
   useEffect(() => {
-    window.EXCALIDRAW_LOCAL_SET_PALETTE?.(mode === "professional");
+    setLocalProfessionalPalette(mode === "professional");
     excalidrawAPI?.updateScene({ appState: mode === "professional" ? PROFESSIONAL_APP_STATE : SKETCH_APP_STATE });
   }, [excalidrawAPI, mode]);
   useEffect(() => {
