@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, session } = require("electron");
 const fs = require("fs/promises");
 const path = require("path");
+const { renderPngAsPdf } = require("./png-pdf.cjs");
 
 let mainWindow;
 let activeFilePath = null;
@@ -108,37 +109,6 @@ function defaultExportPath(extension) {
     ? path.basename(activeFilePath, path.extname(activeFilePath))
     : "Untitled";
   return path.join(app.getPath("home"), `${baseName}.${extension}`);
-}
-
-async function renderPdf(pngDataUrl, width, height) {
-  const exportWindow = new BrowserWindow({
-    show: false,
-    webPreferences: {
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      allowRunningInsecureContent: false
-    }
-  });
-  try {
-    const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-      @page { size: ${width}px ${height}px; margin: 0; }
-      html, body { width: ${width}px; height: ${height}px; margin: 0; }
-      img { display: block; width: ${width}px; height: ${height}px; }
-    </style></head><body><img src="${pngDataUrl}" alt="Exported drawing"></body></html>`;
-    await exportWindow.loadURL(`data:text/html;base64,${Buffer.from(html).toString("base64")}`);
-    return await exportWindow.webContents.printToPDF({
-      pageSize: {
-        width: Math.max(1000, Math.round(width * 264.583)),
-        height: Math.max(1000, Math.round(height * 264.583))
-      },
-      printBackground: true,
-      margins: { marginType: "none" }
-    });
-  } finally {
-    if (!exportWindow.isDestroyed()) exportWindow.destroy();
-  }
 }
 
 function installApplicationMenu() {
@@ -253,16 +223,9 @@ app.whenReady().then(async () => {
     if (format === "png") {
       await fs.writeFile(targetPath, Buffer.from(payload.data, "base64"));
     } else {
-      if (!Number.isFinite(payload.width) || !Number.isFinite(payload.height)) {
-        throw new Error("Invalid PDF dimensions");
-      }
       await fs.writeFile(
         targetPath,
-        await renderPdf(
-          `data:image/png;base64,${payload.data}`,
-          payload.width,
-          payload.height,
-        ),
+        renderPngAsPdf(Buffer.from(payload.data, "base64")),
       );
     }
     return { canceled: false, path: targetPath };

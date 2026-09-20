@@ -46,6 +46,7 @@ function App() {
   const [exportPadding, setExportPadding] = useState(0);
   const [exportBackground, setExportBackground] = useState("transparent");
   const [exportPreview, setExportPreview] = useState(null);
+  const [exportError, setExportError] = useState("");
   const apiRef = useRef(null);
   const setExcalidrawAPIRef = useCallback((api) => {
     apiRef.current = api;
@@ -94,13 +95,18 @@ function App() {
         reader.onload = () => resolve(reader.result);
         reader.readAsDataURL(blob);
       });
-      await window.excalidrawLocal.saveExport(format, {
+      const result = await window.excalidrawLocal.saveExport(format, {
         data: dataUrl.split(",", 2)[1],
         width: canvas.width,
         height: canvas.height
       });
+      if (!result.canceled) {
+        setExportError("");
+        setExportDialogOpen(false);
+      }
     } catch (error) {
       console.error(`Could not export ${format}`, error);
+      setExportError(`Could not export ${format.toUpperCase()}: ${error?.message || "an unexpected error occurred"}`);
     }
   }, [getExportOptions]);
   const newCanvas = useCallback(async () => {
@@ -126,7 +132,10 @@ function App() {
   useEffect(() => window.excalidrawLocal?.onSaveRequest(saveToFile), [saveToFile]);
   useEffect(() => window.excalidrawLocal?.onNewCanvasRequest(newCanvas), [newCanvas]);
   useEffect(() => window.excalidrawLocal?.onOpenRequest(openScene), [openScene]);
-  useEffect(() => window.excalidrawLocal?.onExportRequest(() => setExportDialogOpen(true)), []);
+  useEffect(() => window.excalidrawLocal?.onExportRequest(() => {
+    setExportError("");
+    setExportDialogOpen(true);
+  }), []);
   useEffect(() => {
     if (!isExportDialogOpen) return;
     updateExportPreview().catch((error) => console.error("Could not preview export", error));
@@ -171,6 +180,7 @@ function App() {
           <label><input type="radio" name="export-background" checked={exportBackground === "transparent"} onChange={() => setExportBackground("transparent")} /> Transparent</label>
           <label><input type="radio" name="export-background" checked={exportBackground === "canvas"} onChange={() => setExportBackground("canvas")} /> Canvas color</label>
         </fieldset>
+        {exportError && <p className="export-error" role="alert">{exportError}</p>}
         <footer>
           <button type="button" onClick={() => setExportDialogOpen(false)}>Cancel</button>
           <button type="button" disabled={!exportPreview} onClick={() => exportScene("png")}>Export PNG</button>

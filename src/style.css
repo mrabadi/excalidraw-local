@@ -57,6 +57,7 @@ html, body, #root {
   border-radius: 10px;
   background: var(--island-bg-color, #fff);
   color: var(--text-primary-color, #1b1b1f);
+  font-family: Arial, Helvetica, sans-serif;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
 }
 
@@ -71,21 +72,25 @@ html, body, #root {
 .export-dialog h2 { margin: 0; font-size: 18px; }
 .export-dialog header button { font-size: 22px; line-height: 1; }
 .export-preview {
-  display: grid;
-  place-items: center;
-  min-height: 180px;
+  display: flow-root;
   max-height: 45vh;
   margin: 16px 0 8px;
   overflow: auto;
+}
+.export-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 42vh;
+  margin: 0 auto;
   background-image: conic-gradient(#ddd 25%, #fff 0 50%, #ddd 0 75%, #fff 0);
   background-size: 16px 16px;
 }
-.export-preview img { display: block; max-width: 100%; max-height: 42vh; object-fit: contain; }
 .export-dimensions { margin: 0 0 12px; color: #666; font-size: 13px; }
 .export-dialog > label { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
 .export-dialog input[type="number"] { width: 90px; }
 .export-dialog fieldset { margin: 12px 0 18px; }
 .export-dialog fieldset label { margin-right: 14px; }
+.export-error { margin: -6px 0 14px; color: #b3261e; font-size: 13px; }
 .export-dialog footer { justify-content: flex-end; }
 .export-dialog button { padding: 7px 12px; }
 
