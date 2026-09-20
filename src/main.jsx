@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Excalidraw, serializeAsJSON } from "@excalidraw/excalidraw";
+import { Excalidraw, exportToBlob, exportToCanvas, serializeAsJSON } from "@excalidraw/excalidraw";
 import { setLocalProfessionalPalette } from "@excalidraw/excalidraw/colors";
 import "../node_modules/@excalidraw/excalidraw/dist/prod/index.css";
 import "./style.css";
@@ -11,7 +11,7 @@ const SCENE_STORAGE_KEY = "excalidraw-local:last-scene";
 const MODE_STORAGE_KEY = "excalidraw-local:mode";
 const PROFESSIONAL_APP_STATE = {
   currentItemRoughness: 0,
-  currentItemFontFamily: 10,
+  currentItemFontFamily: 2,
   currentItemArrowType: "elbow",
   currentItemEndArrowhead: "triangle",
   currentItemStrokeColor: "#222624",
@@ -42,6 +42,10 @@ function App() {
   const [initialData] = useState(loadPreviousScene);
   const [mode, setDrawingMode] = useState(() => localStorage.getItem(MODE_STORAGE_KEY) === "professional" ? "professional" : "sketch");
   const [excalidrawAPI, setExcalidrawAPI] = useState(null);
+  const [isExportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportPadding, setExportPadding] = useState(0);
+  const [exportBackground, setExportBackground] = useState("transparent");
+  const [exportPreview, setExportPreview] = useState(null);
   const apiRef = useRef(null);
   const setExcalidrawAPIRef = useCallback((api) => {
     apiRef.current = api;
@@ -64,12 +68,53 @@ function App() {
     );
     const result = await window.excalidrawLocal.saveScene(scene, forceSaveAs);
   }, []);
+  const getExportOptions = useCallback(() => ({
+    elements: apiRef.current.getSceneElements(),
+    appState: {
+      ...apiRef.current.getAppState(),
+      exportBackground: exportBackground === "canvas"
+    },
+    files: apiRef.current.getFiles(),
+    exportPadding: exportPadding
+  }), [exportBackground, exportPadding]);
+  const updateExportPreview = useCallback(async () => {
+    if (!apiRef.current) return;
+    const canvas = await exportToCanvas(getExportOptions());
+    setExportPreview({ url: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height });
+  }, [getExportOptions]);
+  const exportScene = useCallback(async (format) => {
+    if (!apiRef.current || !window.excalidrawLocal) return;
+    try {
+      const options = getExportOptions();
+      const canvas = await exportToCanvas(options);
+      const blob = await exportToBlob({ ...options, mimeType: "image/png" });
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error);
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+      await window.excalidrawLocal.saveExport(format, {
+        data: dataUrl.split(",", 2)[1],
+        width: canvas.width,
+        height: canvas.height
+      });
+    } catch (error) {
+      console.error(`Could not export ${format}`, error);
+    }
+  }, [getExportOptions]);
   const newCanvas = useCallback(async () => {
     if (!apiRef.current || !window.excalidrawLocal) return;
     apiRef.current.resetScene();
+    // resetScene restores Excalidraw's built-in defaults. Reapply the active
+    // local mode so a new canvas behaves exactly like the current mode.
+    setLocalProfessionalPalette(mode === "professional");
+    apiRef.current.updateScene({
+      appState: mode === "professional" ? PROFESSIONAL_APP_STATE : SKETCH_APP_STATE
+    });
     localStorage.removeItem(SCENE_STORAGE_KEY);
     await window.excalidrawLocal.newCanvas();
-  }, []);
+  }, [mode]);
   const openScene = useCallback(async (filePath = null) => {
     if (!apiRef.current || !window.excalidrawLocal) return;
     const result = await window.excalidrawLocal.openScene(filePath);
@@ -81,6 +126,11 @@ function App() {
   useEffect(() => window.excalidrawLocal?.onSaveRequest(saveToFile), [saveToFile]);
   useEffect(() => window.excalidrawLocal?.onNewCanvasRequest(newCanvas), [newCanvas]);
   useEffect(() => window.excalidrawLocal?.onOpenRequest(openScene), [openScene]);
+  useEffect(() => window.excalidrawLocal?.onExportRequest(() => setExportDialogOpen(true)), []);
+  useEffect(() => {
+    if (!isExportDialogOpen) return;
+    updateExportPreview().catch((error) => console.error("Could not preview export", error));
+  }, [isExportDialogOpen, updateExportPreview]);
   useEffect(() => window.excalidrawLocal?.onModeRequest(async (nextMode) => {
     const resolvedMode = nextMode === "professional" ? "professional" : "sketch";
     localStorage.setItem(MODE_STORAGE_KEY, resolvedMode);
@@ -104,7 +154,31 @@ function App() {
     return () => window.removeEventListener("keydown", interceptSaveShortcut, true);
   }, [saveToFile]);
 
-  return <Excalidraw excalidrawAPI={setExcalidrawAPIRef} theme="light" initialData={initialData} onChange={saveScene} />;
+  return <>
+    <Excalidraw excalidrawAPI={setExcalidrawAPIRef} theme="light" initialData={initialData} onChange={saveScene} />
+    {isExportDialogOpen && <div className="export-dialog-backdrop" role="presentation">
+      <section className="export-dialog" role="dialog" aria-modal="true" aria-label="Export drawing">
+        <header><h2>Export drawing</h2><button type="button" aria-label="Close export dialog" onClick={() => setExportDialogOpen(false)}>×</button></header>
+        <div className="export-preview">
+          {exportPreview && <img src={exportPreview.url} alt="Preview of the exported drawing" />}
+        </div>
+        <p className="export-dimensions">{exportPreview ? `${exportPreview.width} × ${exportPreview.height} px` : "Preparing preview…"}</p>
+        <label>Padding (px)
+          <input type="number" min="0" step="1" value={exportPadding} onChange={(event) => setExportPadding(Math.max(0, Number(event.target.value) || 0))} />
+        </label>
+        <fieldset>
+          <legend>Padding color</legend>
+          <label><input type="radio" name="export-background" checked={exportBackground === "transparent"} onChange={() => setExportBackground("transparent")} /> Transparent</label>
+          <label><input type="radio" name="export-background" checked={exportBackground === "canvas"} onChange={() => setExportBackground("canvas")} /> Canvas color</label>
+        </fieldset>
+        <footer>
+          <button type="button" onClick={() => setExportDialogOpen(false)}>Cancel</button>
+          <button type="button" disabled={!exportPreview} onClick={() => exportScene("png")}>Export PNG</button>
+          <button type="button" disabled={!exportPreview} onClick={() => exportScene("pdf")}>Export PDF</button>
+        </footer>
+      </section>
+    </div>}
+    </>;
 }
 
 createRoot(document.getElementById("root")).render(<App />);

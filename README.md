@@ -5,6 +5,7 @@ An offline, launchable Ubuntu desktop app built with [Excalidraw](https://github
 ## Features
 
 - Native top-level File menu: New Canvas, Save, Save As, Open, Open Recent, and Quit.
+- File → Export opens a local preview with crop-to-content, adjustable padding, transparent-or-canvas padding, and PNG/PDF output.
 - Standard shortcuts: `Ctrl+N`, `Ctrl+S`, `Ctrl+Shift+S`, and `Ctrl+O`.
 - `.excalidraw` documents open and save through native system dialogs, defaulting to `$HOME`.
 - The current drawing and active document are restored after restart.
@@ -54,6 +55,7 @@ The installer creates a per-user application-menu entry; it does not require `su
 - **Save As** always prompts for a destination.
 - **Open Recent** lists the ten most recently opened or saved documents.
 - **New Canvas** clears the active document, so the next Save prompts for a new filename.
+- **Export** previews the cropped result before saving PNG or PDF. Padding defaults to zero, and the initial filename is the active document name (or `Untitled`) in `$HOME`.
 
 ## Security model
 

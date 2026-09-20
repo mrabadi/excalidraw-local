@@ -99,6 +99,47 @@ function requestOpen(filePath = null) {
 function requestMode(nextMode) {
   mainWindow?.webContents.send("settings:mode-request", nextMode);
 }
+function requestExport(format) {
+  mainWindow?.webContents.send("scene:export-request", format);
+}
+
+function defaultExportPath(extension) {
+  const baseName = activeFilePath
+    ? path.basename(activeFilePath, path.extname(activeFilePath))
+    : "Untitled";
+  return path.join(app.getPath("home"), `${baseName}.${extension}`);
+}
+
+async function renderPdf(pngDataUrl, width, height) {
+  const exportWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false
+    }
+  });
+  try {
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+      @page { size: ${width}px ${height}px; margin: 0; }
+      html, body { width: ${width}px; height: ${height}px; margin: 0; }
+      img { display: block; width: ${width}px; height: ${height}px; }
+    </style></head><body><img src="${pngDataUrl}" alt="Exported drawing"></body></html>`;
+    await exportWindow.loadURL(`data:text/html;base64,${Buffer.from(html).toString("base64")}`);
+    return await exportWindow.webContents.printToPDF({
+      pageSize: {
+        width: Math.max(1000, Math.round(width * 264.583)),
+        height: Math.max(1000, Math.round(height * 264.583))
+      },
+      printBackground: true,
+      margins: { marginType: "none" }
+    });
+  } finally {
+    if (!exportWindow.isDestroyed()) exportWindow.destroy();
+  }
+}
 
 function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -115,6 +156,8 @@ function installApplicationMenu() {
             ? recentFiles.map((filePath) => ({ label: path.basename(filePath), sublabel: filePath, click: () => requestOpen(filePath) }))
             : [{ label: "No recent files", enabled: false }]
         },
+        { type: "separator" },
+        { label: "Export…", click: () => requestExport() },
         { role: "quit" }
       ]
     },
@@ -188,6 +231,41 @@ app.whenReady().then(async () => {
     } catch (error) {
       return { canceled: false, error: `Could not open ${targetPath}: ${error.message}` };
     }
+  });
+  ipcMain.handle("scene:export", async (_, format, payload) => {
+    const formats = {
+      png: { extension: "png", name: "PNG image" },
+      pdf: { extension: "pdf", name: "PDF document" }
+    };
+    const requestedFormat = formats[format];
+    if (!requestedFormat || !payload || typeof payload.data !== "string") {
+      throw new Error("Invalid export request");
+    }
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: `Export ${requestedFormat.name}`,
+      defaultPath: defaultExportPath(requestedFormat.extension),
+      filters: [{ name: requestedFormat.name, extensions: [requestedFormat.extension] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    const targetPath = result.filePath.endsWith(`.${requestedFormat.extension}`)
+      ? result.filePath
+      : `${result.filePath}.${requestedFormat.extension}`;
+    if (format === "png") {
+      await fs.writeFile(targetPath, Buffer.from(payload.data, "base64"));
+    } else {
+      if (!Number.isFinite(payload.width) || !Number.isFinite(payload.height)) {
+        throw new Error("Invalid PDF dimensions");
+      }
+      await fs.writeFile(
+        targetPath,
+        await renderPdf(
+          `data:image/png;base64,${payload.data}`,
+          payload.width,
+          payload.height,
+        ),
+      );
+    }
+    return { canceled: false, path: targetPath };
   });
   ipcMain.handle("app:quit", () => app.quit());
   ipcMain.handle("settings:set-mode", async (_, nextMode) => {
