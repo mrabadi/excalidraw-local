@@ -214,6 +214,7 @@ app.whenReady().then(async () => {
     const result = await dialog.showSaveDialog(mainWindow, {
       title: `Export ${requestedFormat.name}`,
       defaultPath: defaultExportPath(requestedFormat.extension),
+      properties: ["showOverwriteConfirmation"],
       filters: [{ name: requestedFormat.name, extensions: [requestedFormat.extension] }]
     });
     if (result.canceled || !result.filePath) return { canceled: true };
